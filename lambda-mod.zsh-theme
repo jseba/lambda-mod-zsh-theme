@@ -1,7 +1,39 @@
 #!/usr/bin/env zsh
 
+setopt prompt_subst
+
 local LAMBDA="%(?,%{$fg_bold[green]%}λ,%{$fg_bold[red]%}λ)"
 if [[ "$USER" == "root" ]]; then USERCOLOR="red"; else USERCOLOR="yellow"; fi
+
+PROMPT='
+${LAMBDA}\
+ %{$fg_bold[$USERCOLOR]%}%n@%M\
+ %{$fg_no_bold[magenta]%}[%3~]\
+ %{$fg_bold[cyan]%}→ %{$reset_color%}'
+
+RPROMPT=''
+
+ASYNC_PROC=0
+function precmd() {
+    function async() {
+        printf "%s" "$(get_right_prompt)" > "/tmp/zsh_prompt_$$"
+        kill -s USR1 $$
+    }
+
+
+    if [[ "${ASYNC_PROC}" != 0 ]]; then
+        kill -s HUP $ASYNC_PROC >/dev/null 2>&1 || :
+    fi
+
+    async&!
+    ASYNC_PROC=$!
+}
+
+function TRAPUSR1() {
+    RPROMPT="$(cat /tmp/zsh_prompt_$$)"
+    ASYNC_PROC=0
+    zle && zle reset-prompt
+}
 
 # Git sometimes goes into a detached head state. git_prompt_info doesn't
 # return anything in this case. So wrap it in another function and check
@@ -16,29 +48,19 @@ function check_git_prompt_info() {
 %{$fg_bold[cyan]%}→ "
         fi
     else
-        echo "%{$fg_bold[cyan]%}→ "
     fi
 }
 
 function get_right_prompt() {
     if git rev-parse --git-dir > /dev/null 2>&1; then
-        echo -n "$(git_prompt_short_sha)%{$reset_color%}"
+        echo -n "$(git_prompt_info) $(git_prompt_status) $(git_prompt_short_sha)%{$reset_color%}"
     else
         echo -n "%{$reset_color%}"
     fi
 }
 
-PROMPT='
-${LAMBDA}\
- %{$fg_bold[$USERCOLOR]%}%n\
- %{$fg_no_bold[magenta]%}[%3~]\
- $(check_git_prompt_info)\
-%{$reset_color%}'
-
-RPROMPT='$(get_right_prompt)'
-
 # Format for git_prompt_info()
-ZSH_THEME_GIT_PROMPT_PREFIX="at %{$fg[blue]%} "
+ZSH_THEME_GIT_PROMPT_PREFIX="%{$fg[blue]%} "
 ZSH_THEME_GIT_PROMPT_SUFFIX="%{$reset_color%}"
 ZSH_THEME_GIT_PROMPT_DIRTY=""
 ZSH_THEME_GIT_PROMPT_CLEAN="%{$fg_bold[green]%} ✔"
