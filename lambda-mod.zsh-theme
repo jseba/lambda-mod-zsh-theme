@@ -15,18 +15,22 @@ RPROMPT=''
 
 ASYNC_PROC=0
 function precmd() {
-    function async() {
-        printf "%s" "$(get_right_prompt)" > "/tmp/zsh_prompt_$$"
-        kill -s USR1 $$
-    }
+    if [[ $ZSH_THEME_ASYNC_GIT_PROMPT == "1" ]]; then
+        function async() {
+            printf "%s" "$(get_right_prompt)" > "/tmp/zsh_prompt_$$"
+            kill -s USR1 $$
+        }
 
 
-    if [[ "${ASYNC_PROC}" != 0 ]]; then
-        kill -s HUP $ASYNC_PROC >/dev/null 2>&1 || :
+        if [[ "${ASYNC_PROC}" != 0 ]]; then
+            kill -s HUP $ASYNC_PROC >/dev/null 2>&1 || :
+        fi
+
+        async&!
+        ASYNC_PROC=$!
+    else
+        RPROMPT="$(get_right_prompt)"
     fi
-
-    async&!
-    ASYNC_PROC=$!
 }
 
 function TRAPUSR1() {
